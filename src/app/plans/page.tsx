@@ -52,7 +52,7 @@ export default async function PlansPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.tenantId) redirect("/login");
 
-  const tenant = await prisma.tenant.findUnique({
+  const tenant = await prisma!.tenant.findUnique({
     where: { id: session.user.tenantId },
     select: { id: true, plan: true },
   });

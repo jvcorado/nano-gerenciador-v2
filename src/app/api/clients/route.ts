@@ -14,6 +14,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    if (!prisma) {
+      return NextResponse.json({ error: 'Database connection error' }, { status: 500 });
+    }
     const clients = await prisma.client.findMany({
       where: {
         tenantId: session.user.tenantId,
@@ -44,6 +47,10 @@ export async function POST(request: NextRequest) {
 
     if (!session?.user?.tenantId || !session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!prisma) {
+      return NextResponse.json({ error: 'Database connection error' }, { status: 500 });
     }
 
     // 🔒 Verifica plano e limite de clientes

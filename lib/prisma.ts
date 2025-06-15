@@ -5,7 +5,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 // Só instancia o Prisma se a DATABASE_URL estiver disponível
-const createPrismaClient = () => {
+const createPrismaClient = (): PrismaClient | null => {
   if (!process.env.DATABASE_URL) {
     console.warn('DATABASE_URL não encontrada, Prisma não será inicializado');
     return null;
@@ -24,8 +24,16 @@ if (process.env.NODE_ENV !== 'production' && prisma) {
 }
 
 // Função para verificar se o Prisma está disponível
-export const isPrismaAvailable = () => {
-  return prisma !== null && process.env.DATABASE_URL;
+export const isPrismaAvailable = (): boolean => {
+  return prisma !== null && !!process.env.DATABASE_URL;
+};
+
+// Função que garante que o prisma não é null
+export const getPrisma = (): PrismaClient => {
+  if (!prisma) {
+    throw new Error('Prisma não está disponível. Verifique se DATABASE_URL está configurada.');
+  }
+  return prisma;
 };
 
 // Wrapper para operações do Prisma que podem falhar durante build
