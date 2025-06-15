@@ -1,36 +1,24 @@
 import { NextAuthOptions } from 'next-auth';
+import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import GoogleProvider from 'next-auth/providers/google';
+import { prisma, isPrismaAvailable } from '@/lib/prisma';
 import { Plan, UserRole } from '@prisma/client';
 
-// Importação condicional do Prisma
-let prisma: any;
-let PrismaAdapter: any;
-
-// Só importa o Prisma se a DATABASE_URL estiver disponível
-if (process.env.DATABASE_URL) {
-  prisma = require('@/lib/prisma').prisma;
-  PrismaAdapter = require('@next-auth/prisma-adapter').PrismaAdapter;
-}
-
-// Função para verificar se o banco está disponível
-const isDatabaseAvailable = () => {
-  return process.env.DATABASE_URL && prisma && PrismaAdapter;
-};
-
 export const authOptions: NextAuthOptions = {
-  // Só use o adapter se o banco estiver disponível
-  ...(isDatabaseAvailable() && { adapter: PrismaAdapter(prisma) }),
+  // Adapter condicional baseado na disponibilidade do Prisma
+  ...(isPrismaAvailable() && prisma ? { adapter: PrismaAdapter(prisma) } : {}),
 
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
+
   callbacks: {
     async signIn({ user, account }) {
-      // Skip database operations se não estiver disponível
-      if (!isDatabaseAvailable()) {
+      // Se o Prisma não estiver disponível, apenas permite o login
+      if (!isPrismaAvailable() || !prisma) {
         return true;
       }
 
@@ -52,7 +40,6 @@ export const authOptions: NextAuthOptions = {
             },
           });
 
-          // Se a conta OAuth não estiver registrada, criamos ela manualmente
           if (!existingAccount) {
             await prisma.account.create({
               data: {
@@ -72,7 +59,6 @@ export const authOptions: NextAuthOptions = {
           }
         }
 
-        // Se o usuário ainda não existe (primeiro login), criamos
         if (!dbUser) {
           const newTenant = await prisma.tenant.create({
             data: {
@@ -96,17 +82,15 @@ export const authOptions: NextAuthOptions = {
         }
 
         if (!dbUser.tenantId || !dbUser.tenant) return false;
-
         return dbUser.tenant.isActive;
       } catch (error) {
         console.error('Erro no signIn callback:', error);
-        return false;
+        return true; // Permite login mesmo com erro no banco
       }
     },
 
     async jwt({ token, user }) {
-      // Skip database operations se não estiver disponível
-      if (!isDatabaseAvailable()) {
+      if (!isPrismaAvailable() || !prisma) {
         return token;
       }
 

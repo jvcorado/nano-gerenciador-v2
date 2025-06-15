@@ -4,6 +4,43 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+// Só instancia o Prisma se a DATABASE_URL estiver disponível
+const createPrismaClient = () => {
+  if (!process.env.DATABASE_URL) {
+    console.warn('DATABASE_URL não encontrada, Prisma não será inicializado');
+    return null;
+  }
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+  return new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  });
+};
+
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+
+// Só adiciona ao global se o prisma foi criado e não estamos em produção
+if (process.env.NODE_ENV !== 'production' && prisma) {
+  globalForPrisma.prisma = prisma;
+}
+
+// Função para verificar se o Prisma está disponível
+export const isPrismaAvailable = () => {
+  return prisma !== null && process.env.DATABASE_URL;
+};
+
+// Wrapper para operações do Prisma que podem falhar durante build
+export const safePrismaOperation = async <T>(
+  operation: () => Promise<T>,
+  fallback: T
+): Promise<T> => {
+  if (!isPrismaAvailable()) {
+    return fallback;
+  }
+
+  try {
+    return await operation();
+  } catch (error) {
+    console.error('Erro na operação do Prisma:', error);
+    return fallback;
+  }
+};
