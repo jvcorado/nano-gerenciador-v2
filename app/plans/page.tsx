@@ -1,3 +1,6 @@
+// app/plans/page.tsx
+export const dynamic = "force-dynamic";
+
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
@@ -12,7 +15,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Zap, TrendingUp, Shield } from "lucide-react";
-import Link from "next/link";
 
 const plans = [
   {
