@@ -1,8 +1,5 @@
-// app/api/auth/[...nextauth]/route.ts
-export const dynamic = 'force-dynamic'; // <- Isso resolve o erro no build
-
-import NextAuth from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from "@/lib/auth";
+import NextAuth from "next-auth";
 
 const handler = NextAuth(authOptions);
 

@@ -4,12 +4,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { ClientPlan, ClientStatus } from '@prisma/client';
+import { ClientPlan } from '@prisma/client';
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    console.log('[SESSION DEBUG]', session);
 
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
