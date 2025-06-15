@@ -33,10 +33,15 @@ export function useClients() {
 
   const fetchClients = async () => {
     try {
-      const response = await fetch('/api/clients');
+      const response = await fetch('/api/clients', {
+        credentials: 'include', // 🔥 ESSENCIAL para autenticação via cookie
+      });
       if (response.ok) {
         const data = await response.json();
         setClients(data);
+      } else {
+        const err = await response.json();
+        console.error('Server responded with error:', err);
       }
     } catch (error) {
       console.error('Error fetching clients:', error);
@@ -44,6 +49,7 @@ export function useClients() {
       setIsLoading(false);
     }
   };
+
 
   const addClient = async (clientData: ClientFormData) => {
     try {
