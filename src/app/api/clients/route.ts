@@ -1,121 +1,192 @@
-export const dynamic = 'force-dynamic';
-
+// src/app/api/clients/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { getPrisma, isPrismaAvailable } from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { ClientPlan } from '@prisma/client';
 
-export async function GET() {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.tenantId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    if (!prisma) {
-      return NextResponse.json({ error: 'Database connection error' }, { status: 500 });
-    }
-    const clients = await prisma.client.findMany({
-      where: {
-        tenantId: session.user.tenantId,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    const serializedClients = clients.map(client => ({
-      ...client,
-      startDate: client.startDate.toISOString().split('T')[0],
-      expirationDate: client.expirationDate.toISOString().split('T')[0],
-      createdAt: client.createdAt.toISOString(),
-      updatedAt: client.updatedAt.toISOString(),
-    }));
-
-    return NextResponse.json(serializedClients);
-  } catch (error) {
-    console.error('Error fetching clients:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.tenantId || !session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    if (!prisma) {
-      return NextResponse.json({ error: 'Database connection error' }, { status: 500 });
-    }
-
-    // 🔒 Verifica plano e limite de clientes
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: session.user.tenantId },
-      include: {
-        _count: {
-          select: { clients: true },
-        },
-      },
-    });
-
-    if (!tenant) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 404 });
-    }
-
-    const limite =
-      tenant.plan === 'STARTER' ? 20 : tenant.maxClients ?? 1000;
-
-    if (tenant._count.clients >= limite) {
+    // Verifica se o Prisma está disponível
+    if (!isPrismaAvailable()) {
       return NextResponse.json(
-        {
-          error: `Limite de clientes atingido para o plano ${tenant.plan}.`,
-        },
-        { status: 403 }
+        { error: 'Database not available' },
+        { status: 503 }
       );
     }
 
-    const body = await request.json();
-    const { name, email, server, plan, startDate, status } = body;
-
-    const start = new Date(startDate);
-    const expiration = new Date(start);
-
-    if (plan === ClientPlan.MONTHLY) {
-      expiration.setMonth(start.getMonth() + 1);
-    } else {
-      expiration.setFullYear(start.getFullYear() + 1);
+    const prisma = getPrisma();
+    if (!prisma) {
+      return NextResponse.json(
+        { error: 'Database connection failed' },
+        { status: 503 }
+      );
     }
 
-    const client = await prisma.client.create({
-      data: {
-        name,
-        email,
-        server,
-        plan,
-        startDate: start,
-        expirationDate: expiration,
-        status,
+    // Verifica autenticação
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.tenantId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = params;
+
+    // Busca o cliente
+    const client = await prisma.client.findFirst({
+      where: {
+        id: id,
         tenantId: session.user.tenantId,
-        createdBy: session.user.id,
       },
     });
 
-    const serializedClient = {
-      ...client,
-      startDate: client.startDate.toISOString().split('T')[0],
-      expirationDate: client.expirationDate.toISOString().split('T')[0],
-      createdAt: client.createdAt.toISOString(),
-      updatedAt: client.updatedAt.toISOString(),
-    };
+    if (!client) {
+      return NextResponse.json(
+        { error: 'Client not found' },
+        { status: 404 }
+      );
+    }
 
-    return NextResponse.json(serializedClient);
+    return NextResponse.json(client);
   } catch (error) {
-    console.error('Error creating client:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error fetching client:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    if (!isPrismaAvailable()) {
+      return NextResponse.json(
+        { error: 'Database not available' },
+        { status: 503 }
+      );
+    }
+
+    const prisma = getPrisma();
+    if (!prisma) {
+      return NextResponse.json(
+        { error: 'Database connection failed' },
+        { status: 503 }
+      );
+    }
+
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.tenantId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = params;
+    const body = await request.json();
+
+    // Verifica se o cliente existe e pertence ao tenant
+    const existingClient = await prisma.client.findFirst({
+      where: {
+        id: id,
+        tenantId: session.user.tenantId,
+      },
+    });
+
+    if (!existingClient) {
+      return NextResponse.json(
+        { error: 'Client not found' },
+        { status: 404 }
+      );
+    }
+
+    // Atualiza o cliente
+    const updatedClient = await prisma.client.update({
+      where: {
+        id: id,
+      },
+      data: {
+        name: body.name,
+        email: body.email,
+        // Adicione outros campos conforme necessário
+      },
+    });
+
+    return NextResponse.json(updatedClient);
+  } catch (error) {
+    console.error('Error updating client:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    if (!isPrismaAvailable()) {
+      return NextResponse.json(
+        { error: 'Database not available' },
+        { status: 503 }
+      );
+    }
+
+    const prisma = getPrisma();
+    if (!prisma) {
+      return NextResponse.json(
+        { error: 'Database connection failed' },
+        { status: 503 }
+      );
+    }
+
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.tenantId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = params;
+
+    // Verifica se o cliente existe e pertence ao tenant
+    const existingClient = await prisma.client.findFirst({
+      where: {
+        id: id,
+        tenantId: session.user.tenantId,
+      },
+    });
+
+    if (!existingClient) {
+      return NextResponse.json(
+        { error: 'Client not found' },
+        { status: 404 }
+      );
+    }
+
+    // Deleta o cliente
+    await prisma.client.delete({
+      where: {
+        id: id,
+      },
+    });
+
+    return NextResponse.json({ message: 'Client deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting client:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

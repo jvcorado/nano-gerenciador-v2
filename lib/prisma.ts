@@ -1,54 +1,60 @@
 import { PrismaClient } from '@prisma/client';
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
-// Só instancia o Prisma se a DATABASE_URL estiver disponível
-const createPrismaClient = (): PrismaClient | null => {
-  if (!process.env.DATABASE_URL) {
-    console.warn('DATABASE_URL não encontrada, Prisma não será inicializado');
-    return null;
-  }
-
-  return new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  });
-};
-
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-
-// Só adiciona ao global se o prisma foi criado e não estamos em produção
-if (process.env.NODE_ENV !== 'production' && prisma) {
-  globalForPrisma.prisma = prisma;
+declare global {
+  var prisma: PrismaClient | undefined;
 }
 
-// Função para verificar se o Prisma está disponível
-export const isPrismaAvailable = (): boolean => {
-  return prisma !== null && !!process.env.DATABASE_URL;
-};
+let prisma: PrismaClient | undefined;
 
-// Função que garante que o prisma não é null
-export const getPrisma = (): PrismaClient => {
-  if (!prisma) {
-    throw new Error('Prisma não está disponível. Verifique se DATABASE_URL está configurada.');
+export function isPrismaAvailable(): boolean {
+  try {
+    // Verifica se estamos em um ambiente de build
+    if (process.env.NODE_ENV === 'production' && process.env.SKIP_ENV_VALIDATION) {
+      return false;
+    }
+
+    // Verifica se a DATABASE_URL está definida
+    if (!process.env.DATABASE_URL) {
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.warn('Prisma availability check failed:', error);
+    return false;
   }
-  return prisma;
-};
+}
 
-// Wrapper para operações do Prisma que podem falhar durante build
-export const safePrismaOperation = async <T>(
-  operation: () => Promise<T>,
-  fallback: T
-): Promise<T> => {
+function createPrismaClient(): PrismaClient | undefined {
   if (!isPrismaAvailable()) {
-    return fallback;
+    return undefined;
   }
 
   try {
-    return await operation();
+    return new PrismaClient({
+      log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    });
   } catch (error) {
-    console.error('Erro na operação do Prisma:', error);
-    return fallback;
+    console.error('Failed to create Prisma client:', error);
+    return undefined;
   }
-};
+}
+
+if (process.env.NODE_ENV !== 'production') {
+  if (!global.prisma) {
+    global.prisma = createPrismaClient();
+  }
+  prisma = global.prisma;
+} else {
+  prisma = createPrismaClient();
+}
+
+// Função para obter o Prisma de forma segura
+export function getPrisma(): PrismaClient | null {
+  if (!isPrismaAvailable() || !prisma) {
+    return null;
+  }
+  return prisma;
+}
+
+export { prisma };
