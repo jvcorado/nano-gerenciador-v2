@@ -385,9 +385,19 @@ export function DashboardPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos</SelectItem>
-                        <SelectItem value="Server 1">Server 1</SelectItem>
-                        <SelectItem value="Server 2">Server 2</SelectItem>
-                        <SelectItem value="Server 3">Server 3</SelectItem>
+                        <SelectContent>
+                          <SelectItem value="UNITV">UNITV</SelectItem>
+                          <SelectItem value="STRONG">STRONG</SelectItem>
+                          <SelectItem value="LION">LION</SelectItem>
+                          <SelectItem value="TIVIONE">TIVIONE</SelectItem>
+                          <SelectItem value="LATINO">LATINO</SelectItem>
+                          <SelectItem value="MAGIS">MAGIS</SelectItem>
+                          <SelectItem value="PFAST">PFAST</SelectItem>
+                          <SelectItem value="BLADE">BLADE</SelectItem>
+                          <SelectItem value="UNIPLAY">UNIPLAY</SelectItem>
+                          <SelectItem value="WAREZ">WAREZ</SelectItem>
+                          <SelectItem value="NEKO">NEKO</SelectItem>
+                        </SelectContent>
                       </SelectContent>
                     </Select>
                   </div>

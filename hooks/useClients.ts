@@ -52,17 +52,22 @@ export function useClients() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // 🔥 necessário para enviar o cookie da sessão
         body: JSON.stringify(clientData),
       });
 
       if (response.ok) {
         const newClient = await response.json();
         setClients(prev => [...prev, newClient]);
+      } else {
+        const err = await response.json();
+        console.error('Server responded with error:', err);
       }
     } catch (error) {
       console.error('Error adding client:', error);
     }
   };
+
 
   const editClient = async (id: string, clientData: ClientFormData) => {
     try {
@@ -71,28 +76,37 @@ export function useClients() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // ✅ Adicionar aqui também
         body: JSON.stringify(clientData),
       });
 
       if (response.ok) {
         const updatedClient = await response.json();
-        setClients(prev => prev.map(client => 
+        setClients(prev => prev.map(client =>
           client.id === id ? updatedClient : client
         ));
+      } else {
+        const err = await response.json();
+        console.error('Server responded with error:', err);
       }
     } catch (error) {
       console.error('Error updating client:', error);
     }
   };
 
+
   const deleteClient = async (id: string) => {
     try {
       const response = await fetch(`/api/clients/${id}`, {
         method: 'DELETE',
+        credentials: 'include', // ✅ Aqui também!
       });
 
       if (response.ok) {
         setClients(prev => prev.filter(client => client.id !== id));
+      } else {
+        const err = await response.json();
+        console.error('Server responded with error:', err);
       }
     } catch (error) {
       console.error('Error deleting client:', error);

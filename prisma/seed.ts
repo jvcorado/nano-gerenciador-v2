@@ -3,7 +3,7 @@ import { PrismaClient, UserRole, Plan, ClientPlan, ClientStatus } from '@prisma/
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting seed...');
+
 
   // Create demo tenant
   const demoTenant = await prisma.tenant.upsert({
@@ -27,7 +27,7 @@ async function main() {
     },
   });
 
-  console.log('✅ Demo tenant created');
+
 
   // Create demo user
   const demoUser = await prisma.user.upsert({
@@ -41,7 +41,7 @@ async function main() {
     },
   });
 
-  console.log('✅ Demo user created');
+
 
   // Create sample clients
   const sampleClients = [
@@ -106,8 +106,7 @@ async function main() {
     });
   }
 
-  console.log('✅ Sample clients created');
-  console.log('🎉 Seed completed successfully!');
+
 }
 
 main()

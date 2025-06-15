@@ -394,7 +394,7 @@ export function Dashboard({
             <TrendingUp className="h-5 w-5 opacity-80" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">87%</div>
+            <div className="text-3xl font-bold">0%</div>
             <p className="text-xs opacity-80 mt-1">Últimos 30 dias</p>
           </CardContent>
         </Card>
