@@ -1,16 +1,26 @@
 import { NextAuthOptions } from 'next-auth';
-import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import GoogleProvider from 'next-auth/providers/google';
-import { prisma } from '@/lib/prisma';
 import { Plan, UserRole } from '@prisma/client';
 
-// Função para verificar se estamos em build time
-const isBuildTime = () => {
-  return process.env.NODE_ENV === 'development' && !process.env.DATABASE_URL;
+// Importação condicional do Prisma
+let prisma: any;
+let PrismaAdapter: any;
+
+// Só importa o Prisma se a DATABASE_URL estiver disponível
+if (process.env.DATABASE_URL) {
+  prisma = require('@/lib/prisma').prisma;
+  PrismaAdapter = require('@next-auth/prisma-adapter').PrismaAdapter;
+}
+
+// Função para verificar se o banco está disponível
+const isDatabaseAvailable = () => {
+  return process.env.DATABASE_URL && prisma && PrismaAdapter;
 };
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  // Só use o adapter se o banco estiver disponível
+  ...(isDatabaseAvailable() && { adapter: PrismaAdapter(prisma) }),
+
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
@@ -19,8 +29,8 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account }) {
-      // Skip database operations during build
-      if (isBuildTime()) {
+      // Skip database operations se não estiver disponível
+      if (!isDatabaseAvailable()) {
         return true;
       }
 
@@ -95,8 +105,8 @@ export const authOptions: NextAuthOptions = {
     },
 
     async jwt({ token, user }) {
-      // Skip database operations during build
-      if (isBuildTime()) {
+      // Skip database operations se não estiver disponível
+      if (!isDatabaseAvailable()) {
         return token;
       }
 
