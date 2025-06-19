@@ -1,25 +1,24 @@
 // src/app/api/clients/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { getToken } from 'next-auth/jwt';
 import { prisma } from '@/lib/prisma';
 import { ClientPlan } from '@prisma/client';
 
 // GET - Buscar cliente por ID
 export async function GET(
-  _: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.tenantId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const token = await getToken({ req });
+  if (!token?.tenantId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
+  try {
     const client = await prisma!.client.findFirst({
       where: {
         id: params.id,
-        tenantId: session.user.tenantId,
+        tenantId: token.tenantId,
       },
     });
 
@@ -42,16 +41,17 @@ export async function GET(
   }
 }
 
+// PUT - Atualizar cliente
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.tenantId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const token = await getToken({ req: request });
+  if (!token?.tenantId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
+  try {
     const clientId = params.id;
     const body = await request.json();
     const { name, email, server, plan, startDate, status } = body;
@@ -63,7 +63,7 @@ export async function PUT(
     const clientExists = await prisma!.client.findFirst({
       where: {
         id: clientId,
-        tenantId: session.user.tenantId,
+        tenantId: token.tenantId,
       },
     });
 
@@ -71,7 +71,6 @@ export async function PUT(
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });
     }
 
-    // Calcula expirationDate com base no plano
     const start = new Date(startDate);
     const expiration = new Date(start);
 
@@ -96,16 +95,9 @@ export async function PUT(
     });
 
     const serializedClient = {
-      id: updatedClient.id,
-      tenantId: updatedClient.tenantId,
-      name: updatedClient.name,
-      email: updatedClient.email,
-      server: updatedClient.server,
-      plan: updatedClient.plan,
+      ...updatedClient,
       startDate: updatedClient.startDate.toISOString().split('T')[0],
       expirationDate: updatedClient.expirationDate.toISOString().split('T')[0],
-      status: updatedClient.status,
-      createdBy: updatedClient.createdBy,
       createdAt: updatedClient.createdAt.toISOString(),
       updatedAt: updatedClient.updatedAt.toISOString(),
     };
@@ -119,19 +111,19 @@ export async function PUT(
 
 // DELETE - Remover cliente
 export async function DELETE(
-  _: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.tenantId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const token = await getToken({ req });
+  if (!token?.tenantId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
+  try {
     const deleted = await prisma!.client.deleteMany({
       where: {
         id: params.id,
-        tenantId: session.user.tenantId,
+        tenantId: token.tenantId,
       },
     });
 

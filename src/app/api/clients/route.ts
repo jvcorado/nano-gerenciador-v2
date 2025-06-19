@@ -1,21 +1,20 @@
-// src/app/api/clients/route.ts
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { getToken } from 'next-auth/jwt';
 import { prisma } from '@/lib/prisma';
 import { ClientPlan } from '@prisma/client';
 
-export async function GET() {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.tenantId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+export async function GET(req: NextRequest) {
+  const token = await getToken({ req });
 
+  if (!token?.tenantId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
     const clients = await prisma!.client.findMany({
-      where: { tenantId: session.user.tenantId },
+      where: { tenantId: token.tenantId },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -35,12 +34,13 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.tenantId || !session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const token = await getToken({ req: request });
 
+  if (!token?.tenantId || !token?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
     const body = await request.json();
     const { name, email, server, plan, startDate, status } = body;
 
@@ -48,11 +48,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    if (!prisma) {
-      return NextResponse.json({ error: 'Database connection not available' }, { status: 500 });
-    }
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: session.user.tenantId },
+    const tenant = await prisma!.tenant.findUnique({
+      where: { id: token.tenantId },
       include: { _count: { select: { clients: true } } },
     });
 
@@ -77,10 +74,10 @@ export async function POST(request: NextRequest) {
       expiration.setFullYear(start.getFullYear() + 1);
     }
 
-    const existingClient = await prisma.client.findFirst({
+    const existingClient = await prisma!.client.findFirst({
       where: {
         email,
-        tenantId: session.user.tenantId,
+        tenantId: token.tenantId,
       },
     });
 
@@ -97,8 +94,8 @@ export async function POST(request: NextRequest) {
         startDate: start,
         expirationDate: expiration,
         status,
-        tenantId: session.user.tenantId,
-        createdBy: session.user.id,
+        tenantId: token.tenantId,
+        createdBy: token.id,
       },
     });
 
