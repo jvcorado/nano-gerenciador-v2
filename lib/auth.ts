@@ -165,7 +165,7 @@ export const authOptions: NextAuthOptions = {
     error: '/auth/error',
   },
 
-  debug: process.env.NODE_ENV === 'development',
+  debug: process.env.NODE_ENV === 'production',
 };
 
 // Adiciona o adapter apenas se o Prisma estiver disponível
